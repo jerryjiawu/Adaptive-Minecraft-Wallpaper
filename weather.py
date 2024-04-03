@@ -62,12 +62,30 @@ baudrate = 9600
 ser = serial.Serial(port, baudrate, timeout=0.1)
 historical = []
 
-time_window = "night"
+time_window = ""
 weather = time_window
 old_weather = ""
 
+local_time = time.localtime()
+hour = int(time.strftime("%H", local_time))
+
+if 5 <= hour < 12:
+    frame = "Morning"
+    time_window = "sunset"
+elif 12 <= hour < 17:
+    frame = "Afternoon"
+    time_window = "day"
+elif 17 <= hour < 20:
+    frame = "Evening"
+    time_window = "sunset"
+else:
+    frame = "Night"
+    time_window = "night"
+
 def avg(l):
     return sum(l) / len(l)
+
+
 
 def music():
     global playlist, run
@@ -85,8 +103,6 @@ def music():
 def weather_loop():
     global weather, old_weather, time_window, run
     while run:
-
-        time.sleep(random.randint(0, 60 * 5))
 
         weather = f"{time_window}_to_rain"
         rain.set_volume(0)
@@ -111,6 +127,8 @@ def weather_loop():
 
         weather = time_window
 
+        time.sleep(random.randint(0, 60 * 5))
+
 
 
 if __name__ == '__main__':
@@ -128,27 +146,27 @@ if __name__ == '__main__':
                 sys.exit()
 
         if not old_weather == weather:
-            
-            hour = int(time.strftime("%H", local_time))
-
-            if 5 <= hour < 12:
-                frame = "Morning"
-                time_window = "sunset"
-            elif 12 <= hour < 17:
-                frame = "Afternoon"
-                time_window = "day"
-            elif 17 <= hour < 20:
-                frame = "Evening"
-                time_window = "sunset"
-            else:
-                frame = "Night"
-                time_window = "night"
 
             video = cv2.VideoCapture(f"wallpapers/{weather}.mp4")
             old_weather = weather
 
         clock.tick(30)
         
+        hour = int(time.strftime("%H", local_time))
+
+        if 5 <= hour < 12:
+            frame = "Morning"
+            time_window = "sunset"
+        elif 12 <= hour < 17:
+            frame = "Afternoon"
+            time_window = "day"
+        elif 17 <= hour < 20:
+            frame = "Evening"
+            time_window = "sunset"
+        else:
+            frame = "Night"
+            time_window = "night"
+
         success, video_image = video.read()
         if success:
             video_surf = pygame.image.frombuffer(video_image.tobytes(), video_image.shape[1::-1], "BGR")
