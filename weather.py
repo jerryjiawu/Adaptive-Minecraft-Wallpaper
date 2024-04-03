@@ -2,7 +2,6 @@ import pygame
 from pygame.locals import QUIT
 import cv2
 import threading
-import serial
 import sys 
 import time
 from datetime import datetime
@@ -57,9 +56,7 @@ for noise in background:
 
 rain = pygame.mixer.Sound("sounds/rain.wav")
 
-port = "COM4"
 baudrate = 9600
-ser = serial.Serial(port, baudrate, timeout=0.1)
 historical = []
 
 time_window = ""
