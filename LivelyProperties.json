@@ -1,0 +1,14 @@
+{
+  "AppVersion": "2.0.5.0",
+  "Title": "Adaptive Minecraft Wallpaper",
+  "Thumbnail": "icon.png",
+  "Preview": "icon.png",
+  "Desc": "An adaptive Minecraft-themed wallpaper that changes based on time of day and weather simulation. Features background music, rain effects, and nostalgic Minecraft atmosphere.",
+  "Author": "Jerry Wu",
+  "License": "MIT",
+  "Contact": "",
+  "Type": 1,
+  "FileName": "index.html",
+  "Arguments": null,
+  "IsAbsolutePath": false
+}
