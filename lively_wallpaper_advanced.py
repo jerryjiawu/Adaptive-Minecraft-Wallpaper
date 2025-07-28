@@ -79,6 +79,9 @@ class AdaptiveWallpaper:
         self.wallpaper_dir = self.config.get('PATHS', 'wallpaper_dir')
         self.sound_dir = self.config.get('PATHS', 'sound_dir')
         
+        # Initialize smooth transition tracking
+        self.last_video_path = None
+        
         # Initialize audio if enabled
         if self._audio_enabled():
             self.init_audio()
@@ -162,8 +165,34 @@ class AdaptiveWallpaper:
         else:
             return "night"
 
+    def smooth_wallpaper_transition(self, video_name):
+        """Perform smooth wallpaper transition with volume fade"""
+        try:
+            # Fade out wallpaper volume for smoother transition
+            try:
+                subprocess.run([self.livelycu_path, "app", "--volume", "0"], 
+                             capture_output=True, text=True, timeout=3)
+                time.sleep(0.1)
+            except:
+                pass
+            
+            # Set the new wallpaper
+            result = self.set_wallpaper(video_name)
+            
+            # Fade volume back in
+            try:
+                subprocess.run([self.livelycu_path, "app", "--volume", "50"], 
+                             capture_output=True, text=True, timeout=3)
+            except:
+                pass
+                
+            return result
+        except Exception as e:
+            self.log(f"Error in smooth transition: {e}")
+            return self.set_wallpaper(video_name)  # Fallback to regular method
+
     def set_wallpaper(self, video_name):
-        """Set wallpaper using livelycu with proper cleanup"""
+        """Set wallpaper using livelycu with smooth transitions"""
         try:
             video_path = os.path.abspath(os.path.join(self.wallpaper_dir, f"{video_name}.mov"))
             if not os.path.exists(video_path):
@@ -172,21 +201,46 @@ class AdaptiveWallpaper:
             
             self.log(f"Setting wallpaper: {video_name}")
             
-            # Close all existing wallpapers first
-            try:
-                subprocess.run([self.livelycu_path, "closewp", "--monitor", "-1"], 
-                             capture_output=True, text=True, timeout=10)
-                time.sleep(1.0)  # Give time for proper cleanup
-            except:
-                pass
+            # For smoother transitions, only close wallpapers if we're changing to a different video
+            # This avoids the rescaling/reinitialization
+            current_wallpaper_changed = True
+            if hasattr(self, 'last_video_path') and self.last_video_path == video_path:
+                current_wallpaper_changed = False
+                self.log("Same video - seeking to beginning for smooth transition")
+                # Reset video to beginning for smooth loop
+                try:
+                    subprocess.run([self.livelycu_path, "seekwp", "--value", "0"], 
+                                 capture_output=True, text=True, timeout=5)
+                except:
+                    pass
+                return True
             
-            # Set wallpaper without monitor specification - let Lively handle duplication
+            # Only close wallpapers when changing to different video
+            if current_wallpaper_changed:
+                try:
+                    subprocess.run([self.livelycu_path, "closewp", "--monitor", "-1"], 
+                                 capture_output=True, text=True, timeout=5)
+                    time.sleep(0.2)  # Minimal pause for cleanup
+                except:
+                    pass
+                
+                # Set layout to duplicate mode (copy across all monitors)
+                try:
+                    subprocess.run([self.livelycu_path, "app", "--layout", "duplicate"], 
+                                 capture_output=True, text=True, timeout=5)
+                except Exception as e:
+                    self.log(f"Warning: Could not set duplicate layout: {e}")
+            
+            # Set wallpaper on primary monitor - will duplicate to all monitors
             try:
                 result = subprocess.run([
                     self.livelycu_path, "setwp", "--file", video_path
-                ], capture_output=True, text=True, check=True, timeout=15)
+                ], capture_output=True, text=True, check=True, timeout=10)
                 
-                self.log(f"✓ Wallpaper set: {video_name}")
+                # Store the current video path for next comparison
+                self.last_video_path = video_path
+                
+                self.log(f"✓ Wallpaper set and duplicated: {video_name}")
                 return True
                 
             except subprocess.CalledProcessError as e:
@@ -276,7 +330,7 @@ class AdaptiveWallpaper:
                 time.sleep(1)
 
     def weather_simulation(self):
-        """Simulate weather changes with wallpaper transitions"""
+        """Simulate weather changes with smooth wallpaper transitions"""
         while self.run:
             try:
                 # Update time window
@@ -284,7 +338,7 @@ class AdaptiveWallpaper:
                 
                 # Transition to rain
                 transition_to_rain = f"{self.time_window}_to_rain"
-                if self.set_wallpaper(transition_to_rain):
+                if self.smooth_wallpaper_transition(transition_to_rain):
                     self.current_weather = transition_to_rain
                     self.log(f"Weather: Transitioning to rain ({self.time_window})")
                 
@@ -297,7 +351,7 @@ class AdaptiveWallpaper:
                 
                 # Full rain
                 rain_weather = f"{self.time_window}_rain"
-                if self.set_wallpaper(rain_weather):
+                if self.smooth_wallpaper_transition(rain_weather):
                     self.current_weather = rain_weather
                     self.log(f"Weather: Raining ({self.time_window})")
                 
@@ -310,7 +364,7 @@ class AdaptiveWallpaper:
                 
                 # Transition back to clear
                 transition_to_clear = f"rain_to_{self.time_window}"
-                if self.set_wallpaper(transition_to_clear):
+                if self.smooth_wallpaper_transition(transition_to_clear):
                     self.current_weather = transition_to_clear
                     self.log(f"Weather: Transitioning to clear ({self.time_window})")
                 
@@ -321,7 +375,7 @@ class AdaptiveWallpaper:
                 time.sleep(transition_duration)
                 
                 # Clear weather
-                if self.set_wallpaper(self.time_window):
+                if self.smooth_wallpaper_transition(self.time_window):
                     self.current_weather = self.time_window
                     self.log(f"Weather: Clear ({self.time_window})")
                 
@@ -351,7 +405,7 @@ class AdaptiveWallpaper:
                     not any(transition in self.current_weather for transition in ["_to_", "_rain"])):
                     
                     self.time_window = current_time_window
-                    if self.set_wallpaper(self.time_window):
+                    if self.smooth_wallpaper_transition(self.time_window):
                         self.current_weather = self.time_window
                         self.log(f"Time window changed to: {self.time_window}")
                     last_time_window = current_time_window
@@ -389,6 +443,14 @@ class AdaptiveWallpaper:
             print(f"Error: livelycu not found at {self.livelycu_path}")
             print("Please update the path in config.ini")
             return
+        
+        # Set layout to duplicate mode for multi-monitor support
+        try:
+            subprocess.run([self.livelycu_path, "app", "--layout", "duplicate"], 
+                         capture_output=True, text=True, timeout=10)
+            self.log("Configured Lively for duplicate layout (multi-monitor)")
+        except Exception as e:
+            self.log(f"Warning: Could not configure duplicate layout: {e}")
         
         # Initialize
         self.time_window = self.get_time_window()
