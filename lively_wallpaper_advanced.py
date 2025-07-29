@@ -47,7 +47,8 @@ class AdaptiveWallpaperConfig:
         self.config['DEBUG'] = {
             'verbose_logging': 'true',
             'show_status_updates': 'true',
-            'status_update_interval': '5'
+            'status_update_interval': '5',
+            'hide_lively_popups': 'true'
         }
     
     def get(self, section, key, fallback=None):
@@ -236,6 +237,14 @@ class AdaptiveWallpaper:
                 result = subprocess.run([
                     self.livelycu_path, "setwp", "--file", video_path
                 ], capture_output=True, text=True, check=True, timeout=10)
+                
+                # Hide app window immediately after setting wallpaper to minimize popups
+                if self.config.getboolean('DEBUG', 'hide_lively_popups'):
+                    try:
+                        subprocess.run([self.livelycu_path, "app", "--showApp", "false"], 
+                                     capture_output=True, text=True, timeout=3)
+                    except:
+                        pass  # Don't fail if this doesn't work
                 
                 # Store the current video path for next comparison
                 self.last_video_path = video_path
@@ -444,13 +453,22 @@ class AdaptiveWallpaper:
             print("Please update the path in config.ini")
             return
         
-        # Set layout to duplicate mode for multi-monitor support
+        # Set layout to duplicate mode for multi-monitor support and hide app
         try:
             subprocess.run([self.livelycu_path, "app", "--layout", "duplicate"], 
                          capture_output=True, text=True, timeout=10)
             self.log("Configured Lively for duplicate layout (multi-monitor)")
         except Exception as e:
             self.log(f"Warning: Could not configure duplicate layout: {e}")
+        
+        # Hide the Lively app window to minimize popups
+        if self.config.getboolean('DEBUG', 'hide_lively_popups'):
+            try:
+                subprocess.run([self.livelycu_path, "app", "--showApp", "false"], 
+                             capture_output=True, text=True, timeout=5)
+                self.log("Configured Lively to hide app window")
+            except Exception as e:
+                self.log(f"Warning: Could not hide app window: {e}")
         
         # Initialize
         self.time_window = self.get_time_window()
